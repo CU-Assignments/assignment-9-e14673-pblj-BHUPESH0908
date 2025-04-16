@@ -1,0 +1,77 @@
+Account.java
+import jakarta.persistence.*;
+
+@Entity
+public class Account {
+    @Id
+    private int id;
+    private String name;
+    private double balance;
+
+    // Getters and Setters
+}
+TransactionService.java:
+import jakarta.transaction.Transactional;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TransactionService {
+
+    @Autowired
+    private SessionFactory sessionFactory;
+
+    @Transactional
+    public void transfer(int fromId, int toId, double amount) {
+        Session session = sessionFactory.getCurrentSession();
+        Account from = session.get(Account.class, fromId);
+        Account to = session.get(Account.class, toId);
+
+        if (from.getBalance() < amount) {
+            throw new RuntimeException("Insufficient balance");
+        }
+
+        from.setBalance(from.getBalance() - amount);
+        to.setBalance(to.getBalance() + amount);
+
+        session.update(from);
+        session.update(to);
+    }
+}
+AppConfig.java:
+import org.hibernate.SessionFactory;
+import org.springframework.context.annotation.*;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import javax.sql.DataSource;
+import com.zaxxer.hikari.HikariDataSource;
+
+@Configuration
+@ComponentScan(basePackages = "com.example")
+@EnableTransactionManagement
+public class AppConfig {
+
+    @Bean
+    public DataSource dataSource() {
+        HikariDataSource ds = new HikariDataSource();
+        ds.setJdbcUrl("jdbc:mysql://localhost:3306/your_db");
+        ds.setUsername("root");
+        ds.setPassword("your_password");
+        return ds;
+    }
+
+    @Bean
+    public LocalSessionFactoryBean sessionFactory() {
+        LocalSessionFactoryBean factory = new LocalSessionFactoryBean();
+        factory.setDataSource(dataSource());
+        factory.setPackagesToScan("com.example");
+        return factory;
+    }
+
+    @Bean
+    public org.springframework.orm.hibernate5.HibernateTransactionManager transactionManager(SessionFactory sf) {
+        return new org.springframework.orm.hibernate5.HibernateTransactionManager(sf);
+    }
+}
